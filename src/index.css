@@ -1,0 +1,8 @@
+/* Add this to index.css or App.css */
+@import "leaflet/dist/leaflet.css";
+/* Leaflet CSS */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
