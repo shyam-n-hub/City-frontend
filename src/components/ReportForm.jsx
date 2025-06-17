@@ -216,7 +216,7 @@ function ReportForm() {
         return form.category;
       }
 
-      const response = await fetch("http://localhost:5000/predict", {
+      const response = await fetch("https://city-backend-pfob.onrender.com/predict", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
