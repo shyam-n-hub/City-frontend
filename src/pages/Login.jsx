@@ -3,7 +3,7 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase-config";
-import "./login.css"; // Import the CSS file
+import "./Login.css"; // Import the CSS file
 
 function Login() {
   const [email, setEmail] = useState("");
