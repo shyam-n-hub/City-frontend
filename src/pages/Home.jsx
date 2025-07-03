@@ -40,7 +40,7 @@ function Home() {
             <h1 className="hero-title">
               <span className="gradient-text">Smart City</span>
               <br />
-              Issue Reporting System
+              Issue Reporting System!
             </h1>
             <p className="hero-subtitle">
               Empowering citizens to build better communities through collaborative issue reporting
