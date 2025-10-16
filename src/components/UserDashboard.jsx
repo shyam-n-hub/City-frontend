@@ -124,10 +124,10 @@ function UserDashboard() {
   const getStatusInfo = (status) => {
     const statusLower = status?.toLowerCase() || 'pending';
     const statusMap = {
-      'pending': { color: '#ff9800', icon: '⏳', text: 'Pending' },
-      'in-progress': { color: '#2196f3', icon: '🔄', text: 'In Progress' },
-      'resolved': { color: '#4caf50', icon: '✅', text: 'Resolved' },
-      'rejected': { color: '#f44336', icon: '❌', text: 'Rejected' }
+      'pending': { color: 'red', icon: '⏳', text: 'Pending' },
+      'in-progress': { color: 'blue', icon: '🔄', text: 'In Progress' },
+      'resolved': { color: 'green', icon: '✅', text: 'Resolved' },
+      'rejected': { color: 'orange', icon: '❌', text: 'Rejected' }
     };
     return statusMap[statusLower] || statusMap['pending'];
   };

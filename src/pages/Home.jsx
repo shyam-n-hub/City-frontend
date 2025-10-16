@@ -38,9 +38,9 @@ function Home() {
         <div className="hero-content">
           <div className="hero-text">
             <h1 className="hero-title">
-              <span className="gradient-text">Smart City</span>
+              <span className="gradient-text">SmartCivic</span>
               <br />
-              Issue Reporting System!
+              Track and resolve civic issues!
             </h1>
             <p className="hero-subtitle">
               Empowering citizens to build better communities through collaborative issue reporting
@@ -56,6 +56,7 @@ function Home() {
             </div>
           </div>
           <div className="hero-visual">
+            <img src='/logo.png' alt='image' className='hero-img'></img>
             <div className="floating-elements">
               <div className="floating-icon city">🏙️</div>
               <div className="floating-icon report">📋</div>
@@ -196,7 +197,7 @@ function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="stats-section">
+      {/* <section className="stats-section">
         <div className="container">
           <div className="stats-grid">
             <div className="stat-item">
@@ -217,7 +218,7 @@ function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
       <section className="cta-section">

@@ -1,0 +1,72 @@
+.reports-export-container {
+  padding: 20px;
+  font-family: "Poppins", sans-serif;
+}
+
+.filters {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filters label {
+  margin-right: 8px;
+  font-weight: bold;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.excel-btn,
+.pdf-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.excel-btn {
+  background-color: #4caf50;
+}
+.pdf-btn {
+  background-color: #f44336;
+}
+.excel-btn:hover {
+  opacity: 0.8;
+}
+.pdf-btn:hover {
+  opacity: 0.8;
+}
+
+.table-container {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background-color: #e3f2fd;
+}
+
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+  font-size: 14px;
+}
+
+tr:hover {
+  background-color: #f1f1f1;
+}

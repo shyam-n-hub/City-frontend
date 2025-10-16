@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const adminEmails = [
-    "abcd1234@gmail.com",
+    "shyam44n@gmail.com",
     "admin2@example.com", 
     "admin3@example.com",
     "admin4@example.com"

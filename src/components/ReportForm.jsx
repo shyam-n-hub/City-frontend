@@ -1,8 +1,8 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import { ref, push } from "firebase/database";
+import { ref, push, get } from "firebase/database";
 import { db } from "../firebase-config";
 import { AuthContext } from "../context/AuthContext";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import 'leaflet-defaulticon-compatibility';
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
@@ -25,6 +25,142 @@ function LocationPicker({ setLocation }) {
     },
   });
   return null;
+}
+
+// Map controller to handle search results
+function MapController({ center, zoom }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (center) {
+      map.setView(center, zoom);
+    }
+  }, [center, zoom, map]);
+  
+  return null;
+}
+
+// Map Search Component
+function MapSearch({ onLocationSelect }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
+  const searchLocation = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Using Nominatim (OpenStreetMap's geocoding service)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`
+      );
+      const data = await response.json();
+      
+      setSearchResults(data.map(result => ({
+        name: result.display_name,
+        lat: parseFloat(result.lat),
+        lng: parseFloat(result.lon),
+        type: result.type
+      })));
+      setShowResults(true);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    // Debounce search
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      searchLocation(value);
+    }, 500);
+  };
+
+  const handleResultClick = (result) => {
+    onLocationSelect({ lat: result.lat, lng: result.lng }, result.name);
+    setSearchQuery(result.name);
+    setShowResults(false);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowResults(false);
+  };
+
+  return (
+    <div className="map-search-container">
+      <div className="search-input-wrapper">
+        <span className="search-icon">🔍</span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          onFocus={() => searchResults.length > 0 && setShowResults(true)}
+          placeholder="Search for a location (e.g., Delhi, Mumbai Central Station)"
+          className="map-search-input"
+        />
+        {searchQuery && (
+          <button 
+            onClick={handleClearSearch}
+            className="search-clear-btn"
+            type="button"
+          >
+            ✕
+          </button>
+        )}
+        {isSearching && (
+          <div className="search-loading">
+            <div className="search-spinner"></div>
+          </div>
+        )}
+      </div>
+
+      {showResults && searchResults.length > 0 && (
+        <div className="search-results">
+          {searchResults.map((result, index) => (
+            <div
+              key={index}
+              className="search-result-item"
+              onClick={() => handleResultClick(result)}
+            >
+              <span className="result-icon">📍</span>
+              <div className="result-details">
+                <div className="result-name">{result.name}</div>
+                <div className="result-coords">
+                  {result.lat.toFixed(4)}, {result.lng.toFixed(4)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showResults && searchQuery && searchResults.length === 0 && !isSearching && (
+        <div className="search-results">
+          <div className="search-no-results">
+            <span>🔍</span>
+            <p>No locations found</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Enhanced Chatbot Component with CSS classes
@@ -200,6 +336,9 @@ function ReportForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [chatbotVisible, setChatbotVisible] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [mapCenter, setMapCenter] = useState([10.8505, 78.6921]);
+  const [mapZoom, setMapZoom] = useState(6);
+  const [selectedLocationName, setSelectedLocationName] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -208,6 +347,13 @@ function ReportForm() {
 
   const handleFileChange = (e) => {
     setForm((prev) => ({ ...prev, image: e.target.files[0] }));
+  };
+
+  const handleLocationSearch = (location, locationName) => {
+    setForm((prev) => ({ ...prev, location }));
+    setMapCenter([location.lat, location.lng]);
+    setMapZoom(15);
+    setSelectedLocationName(locationName);
   };
 
   const getPredictedCategory = async (description) => {
@@ -239,12 +385,30 @@ function ReportForm() {
     }
   };
 
+  const uploadImageAlternative = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        try {
+          const base64String = reader.result;
+          resolve(base64String);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read image file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setMessage("");
     setProgress(0);
 
-    // Validation
     if (!form.location.lat || !form.location.lng) {
       setMessage("Please select a location on the map.");
       setIsSubmitting(false);
@@ -264,82 +428,81 @@ function ReportForm() {
     }
 
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          setProgress(25);
-          const base64Image = reader.result.replace(/^data:image\/[a-z]+;base64,/, '');
+      setMessage("📋 Getting user details...");
+      setProgress(10);
+      
+      const userDetailsRef = ref(db, `userDetails/${currentUser.uid}`);
+      const userDetailsSnapshot = await get(userDetailsRef);
+      const userDetails = userDetailsSnapshot.exists() ? userDetailsSnapshot.val() : {};
 
-          setMessage("📤 Uploading image...");
-          setProgress(50);
-          const apiKey = "0b03d35eabd7097c44177ec372f3f1da";
-          const imageResponse = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-            method: "POST",
-            body: new URLSearchParams({ image: base64Image }),
-          });
+      setMessage("📤 Processing image...");
+      setProgress(25);
 
-          const imageResult = await imageResponse.json();
-          if (!imageResult.success) {
-            throw new Error("Image upload failed: " + (imageResult.error?.message || "Unknown error"));
-          }
+      let imageUrl;
+      try {
+        imageUrl = await uploadImageAlternative(form.image);
+        setProgress(50);
+      } catch (imageError) {
+        console.error("Image upload failed:", imageError);
+        setMessage("⚠️ Image upload failed, submitting without image...");
+        imageUrl = null;
+        setProgress(50);
+      }
 
-          const imageUrl = imageResult.data.url;
-          setProgress(75);
+      setMessage("🤖 Getting AI prediction...");
+      setProgress(75);
+      const predictedCategory = await getPredictedCategory(form.description);
 
-          setMessage("🤖 Getting AI prediction...");
-          const predictedCategory = await getPredictedCategory(form.description);
-
-          const reportData = {
-            category: form.category || "Unknown",
-            predictedCategory: predictedCategory || form.category || "Unknown",
-            description: form.description.trim() || "No description",
-            location: {
-              lat: Number(form.location.lat),
-              lng: Number(form.location.lng)
-            },
-            imageUrl: imageUrl,
-            user: currentUser?.uid || "anonymous",
-            status: "pending",
-            createdAt: Date.now(),
-          };
-
-          setMessage("💾 Submitting report...");
-          setProgress(90);
-          await push(ref(db, "reports"), reportData);
-
-          setProgress(100);
-          setMessage("🎉 Report submitted successfully!");
-          
-          // Reset form
-          setForm({
-            category: "Pothole",
-            description: "",
-            location: { lat: null, lng: null },
-            image: null,
-          });
-
-          const fileInput = document.querySelector('input[type="file"]');
-          if (fileInput) fileInput.value = '';
-
-        } catch (error) {
-          console.error("Submission error:", error);
-          setMessage(`❌ Error submitting report: ${error.message}`);
-        } finally {
-          setIsSubmitting(false);
-          setTimeout(() => setProgress(0), 2000);
+      const reportData = {
+        category: form.category || "Unknown",
+        predictedCategory: predictedCategory || form.category || "Unknown",
+        description: form.description.trim() || "No description",
+        location: {
+          lat: Number(form.location.lat),
+          lng: Number(form.location.lng)
+        },
+        locationName: selectedLocationName || "Location selected on map",
+        imageUrl: imageUrl,
+        imageFileName: form.image ? form.image.name : null,
+        imageSize: form.image ? form.image.size : null,
+        user: currentUser?.uid || "anonymous",
+        status: "pending",
+        createdAt: Date.now(),
+        userDetails: {
+          citizenName: userDetails.citizenName || "Unknown",
+          emailId: userDetails.emailId || currentUser.email || "Unknown",
+          mobileNumber: userDetails.mobileNumber || "Unknown",
+          municipalityName: userDetails.municipalityName || "Not specified",
+          pinCode: userDetails.pinCode || "Unknown",
+          area: userDetails.area || "Not specified",
+          locality: userDetails.locality || "Not specified"
         }
       };
 
-      reader.onerror = () => {
-        setMessage("❌ Error reading image file.");
-        setIsSubmitting(false);
-      };
+      setMessage("💾 Submitting report...");
+      setProgress(90);
+      await push(ref(db, "reports"), reportData);
 
-      reader.readAsDataURL(form.image);
+      setProgress(100);
+      setMessage("🎉 Report submitted successfully!");
+      
+      setForm({
+        category: "Pothole",
+        description: "",
+        location: { lat: null, lng: null },
+        image: null,
+      });
+      setSelectedLocationName("");
+
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = '';
+
     } catch (error) {
-      console.error("File reading error:", error);
-      setMessage("❌ Error processing image file.");
+      console.error("Submission error:", error);
+      setMessage(`❌ Error submitting report: ${error.message}`);
+    } finally {
       setIsSubmitting(false);
+      setTimeout(() => setProgress(0), 2000);
     }
   };
 
@@ -369,23 +532,13 @@ function ReportForm() {
       </div>
 
       <div className="report-form-card">
-        <div className="form-header">
+        <div className="form-header1">
           <div className="header-content">
             <h1 className="form-title">
               <span className="title-icon">🏙️</span>
               Smart City Reporter
             </h1>
-            <p className="form-subtitle">Help make your city better by reporting public issues</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setChatbotVisible(true)}
-            className="ai-help-btn"
-          >
-            <span className="btn-icon">🤖</span>
-            AI Assistant
-            <div className="btn-glow"></div>
-          </button>
         </div>
 
         {progress > 0 && (
@@ -459,21 +612,28 @@ function ReportForm() {
               Location Selection
               <span className="required">*</span>
             </label>
+            
+            <MapSearch onLocationSelect={handleLocationSearch} />
+            
             <div className="map-container">
               <MapContainer
-                center={[10.8505, 78.6921]}
-                zoom={6}
+                center={mapCenter}
+                zoom={mapZoom}
                 className="leaflet-map"
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <LocationPicker setLocation={(loc) => setForm((prev) => ({ ...prev, location: loc }))} />
+                <MapController center={mapCenter} zoom={mapZoom} />
+                <LocationPicker setLocation={(loc) => {
+                  setForm((prev) => ({ ...prev, location: loc }));
+                  setSelectedLocationName("");
+                }} />
                 {form.location.lat && form.location.lng && (
                   <Marker position={[form.location.lat, form.location.lng]} />
                 )}
               </MapContainer>
               <div className="map-instruction">
                 <span className="instruction-icon">👆</span>
-                Click on the map to select the exact location
+                Search for a location or click on the map to select
               </div>
             </div>
           </div>
@@ -489,7 +649,7 @@ function ReportForm() {
                 value={form.location.lat || ""} 
                 readOnly 
                 className="form-input coordinate-input"
-                placeholder="Select location on map"
+                placeholder="Select location"
               />
             </div>
             <div className="coordinate-field">
@@ -502,7 +662,7 @@ function ReportForm() {
                 value={form.location.lng || ""} 
                 readOnly 
                 className="form-input coordinate-input"
-                placeholder="Select location on map"
+                placeholder="Select location"
               />
             </div>
           </div>
@@ -561,13 +721,6 @@ function ReportForm() {
           </button>
         </form>
       </div>
-
-      <ChatbotAssistant
-        form={form}
-        onSuggestion={handleChatbotSuggestion}
-        isVisible={chatbotVisible}
-        onToggle={() => setChatbotVisible(!chatbotVisible)}
-      />
     </div>
   );
 }
